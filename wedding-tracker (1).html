@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="si">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>💍 Wedding Gift Tracker</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --gold:       #C9933A;
+      --gold-light: #F0C97A;
+      --cream:      #FBF6EE;
+      --warm-white: #FFFDF9;
+      --rose:       #E8A598;
+      --deep:       #2C1810;
+      --text:       #3D2314;
+      --muted:      #9B7B6A;
+      --card-bg:    rgba(255,255,255,0.85);
+      --border:     rgba(201,147,58,0.25);
+      --shadow:     0 4px 24px rgba(44,24,16,0.10);
+      --radius:     18px;
+      --green:      #4CAF50;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--cream);
+      color: var(--text);
+      min-height: 100vh;
+      padding-bottom: 40px;
+      background-image:
+        radial-gradient(ellipse at 10% 0%, rgba(240,201,122,0.18) 0%, transparent 55%),
+        radial-gradient(ellipse at 90% 100%, rgba(232,165,152,0.15) 0%, transparent 55%);
+    }
+
+    /* ── HEADER ── */
+    .header {
+      background: linear-gradient(135deg, var(--deep) 0%, #5C2D1E 100%);
+      padding: 48px 20px 28px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .header::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23C9933A' fill-opacity='0.07'%3E%3Cpath d='M30 0 L60 30 L30 60 L0 30 Z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+      background-size: 40px 40px;
+    }
+    .header-emoji { font-size: 2.4rem; display: block; margin-bottom: 6px; position: relative; }
+    .header h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--gold-light);
+      letter-spacing: 0.5px;
+      position: relative;
+    }
+    .header p {
+      font-size: 0.82rem;
+      color: rgba(240,201,122,0.65);
+      margin-top: 4px;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      position: relative;
+    }
+
+    /* ── SYNC STATUS BAR ── */
+    .sync-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      padding: 8px 16px;
+      background: rgba(44,24,16,0.06);
+      font-size: 0.75rem;
+      color: var(--muted);
+      letter-spacing: 0.4px;
+    }
+    .sync-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #ccc;
+      flex-shrink: 0;
+      transition: background 0.4s;
+    }
+    .sync-dot.connecting { background: var(--gold); animation: pulse 1.2s infinite; }
+    .sync-dot.synced     { background: var(--green); }
+    .sync-dot.offline    { background: var(--rose); }
+    @keyframes pulse {
+      0%,100% { opacity: 1; } 50% { opacity: 0.3; }
+    }
+
+    /* ── TOTAL CARD ── */
+    .total-section {
+      margin: -1px 16px 0;
+      background: linear-gradient(135deg, var(--gold) 0%, #E8B55A 100%);
+      border-radius: 0 0 var(--radius) var(--radius);
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 6px 20px rgba(201,147,58,0.35);
+    }
+    .total-label { font-size: 0.75rem; color: rgba(44,24,16,0.7); font-weight: 500; text-transform: uppercase; letter-spacing: 0.8px; }
+    .total-amount { font-family: 'Playfair Display', serif; font-size: 1.65rem; font-weight: 700; color: var(--deep); }
+    .total-count { font-size: 0.75rem; color: rgba(44,24,16,0.6); text-align: right; }
+
+    /* ── FORM CARD ── */
+    .form-card {
+      margin: 20px 16px 0;
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      padding: 22px 20px;
+      -webkit-backdrop-filter: blur(10px);
+      backdrop-filter: blur(10px);
+    }
+    .form-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 1rem;
+      color: var(--gold);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .form-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, var(--border), transparent);
+    }
+
+    .input-group { margin-bottom: 14px; }
+    .input-group label {
+      display: block;
+      font-size: 0.73rem;
+      font-weight: 500;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+      margin-bottom: 6px;
+    }
+    .input-group input {
+      width: 100%;
+      padding: 13px 16px;
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 1rem;
+      color: var(--text);
+      background: var(--warm-white);
+      outline: none;
+      -webkit-appearance: none;
+      appearance: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .input-group input:focus {
+      border-color: var(--gold);
+      box-shadow: 0 0 0 3px rgba(201,147,58,0.15);
+    }
+    .input-group input::placeholder { color: #C4A98A; }
+
+    .btn-enter {
+      width: 100%;
+      padding: 15px;
+      background: linear-gradient(135deg, var(--deep) 0%, #5C2D1E 100%);
+      color: var(--gold-light);
+      border: none;
+      border-radius: 12px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 1rem;
+      font-weight: 500;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      transition: transform 0.12s, box-shadow 0.12s, opacity 0.12s;
+      -webkit-appearance: none;
+      box-shadow: 0 4px 14px rgba(44,24,16,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn-enter:active { transform: scale(0.97); opacity: 0.9; }
+    .btn-enter:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── SEARCH ── */
+    .search-bar {
+      margin: 16px 16px 0;
+      position: relative;
+    }
+    .search-bar input {
+      width: 100%;
+      padding: 12px 16px 12px 40px;
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.9rem;
+      color: var(--text);
+      background: var(--card-bg);
+      outline: none;
+      -webkit-appearance: none;
+    }
+    .search-bar input:focus { border-color: var(--gold); }
+    .search-icon {
+      position: absolute;
+      left: 13px; top: 50%;
+      transform: translateY(-50%);
+      font-size: 1rem;
+      pointer-events: none;
+    }
+
+    /* ── LIST SECTION ── */
+    .list-section { margin: 16px 16px 0; }
+    .list-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .list-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 1rem;
+      color: var(--text);
+    }
+    .btn-clear-all {
+      font-size: 0.75rem;
+      color: var(--rose);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 8px;
+      font-family: 'DM Sans', sans-serif;
+    }
+
+    .gift-item {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      box-shadow: 0 2px 10px rgba(44,24,16,0.06);
+      animation: slideIn 0.25s ease;
+      -webkit-backdrop-filter: blur(8px);
+      backdrop-filter: blur(8px);
+    }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .gift-avatar {
+      width: 44px; height: 44px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--gold) 0%, var(--rose) 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Playfair Display', serif;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: white;
+      flex-shrink: 0;
+      text-transform: uppercase;
+    }
+    .gift-info { flex: 1; min-width: 0; }
+    .gift-name {
+      font-weight: 500;
+      font-size: 0.95rem;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .gift-date {
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .gift-amount {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--gold);
+      flex-shrink: 0;
+    }
+    .btn-delete {
+      background: none;
+      border: none;
+      color: #D4998A;
+      font-size: 1.1rem;
+      cursor: pointer;
+      padding: 6px;
+      border-radius: 8px;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+    .btn-delete:active { background: rgba(232,165,152,0.2); }
+
+    /* Empty state */
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--muted);
+    }
+    .empty-state .emoji { font-size: 3rem; display: block; margin-bottom: 12px; }
+    .empty-state p { font-size: 0.9rem; line-height: 1.6; }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 30px; left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: var(--deep);
+      color: var(--gold-light);
+      padding: 12px 24px;
+      border-radius: 50px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      box-shadow: 0 4px 20px rgba(44,24,16,0.4);
+      transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+      z-index: 999;
+      white-space: nowrap;
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+
+    /* Column headers */
+    .col-headers {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 0 16px 8px;
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--muted);
+      font-weight: 500;
+    }
+    .col-h-name { flex: 1; padding-left: 58px; }
+    .col-h-amount { flex-shrink: 0; }
+    .col-h-del { width: 32px; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <span class="header-emoji">💍</span>
+    <h1>Wedding Gift Tracker</h1>
+    <p>ශාදිය – ත්‍යාග ලේඛනය</p>
+  </div>
+
+  <!-- Sync status bar -->
+  <div class="sync-bar">
+    <span class="sync-dot connecting" id="syncDot"></span>
+    <span id="syncLabel">Firebase සම්බන්ධ වෙමින්...</span>
+  </div>
+
+  <div class="total-section">
+    <div>
+      <div class="total-label">එකතු මුදල</div>
+      <div class="total-amount" id="totalAmount">රු. 0.00</div>
+    </div>
+    <div class="total-count" id="totalCount">0 දෙනා</div>
+  </div>
+
+  <div class="form-card">
+    <div class="form-title">✨ නව ත්‍යාගයක් එකතු කරන්න</div>
+    <div class="input-group">
+      <label>නම (Name)</label>
+      <input type="text" id="inputName" placeholder="ආරාධිතයාගේ නම" autocomplete="off" autocorrect="off" spellcheck="false" />
+    </div>
+    <div class="input-group">
+      <label>මුදල (Amount) – රු.</label>
+      <input type="number" id="inputAmount" placeholder="0.00" inputmode="decimal" min="0" />
+    </div>
+    <button class="btn-enter" id="btnEnter" onclick="addEntry()">
+      <span>➕</span> Enter
+    </button>
+  </div>
+
+  <div class="search-bar">
+    <span class="search-icon">🔍</span>
+    <input type="text" id="searchInput" placeholder="නම් වලින් සොයන්න…" oninput="renderList()" autocomplete="off" />
+  </div>
+
+  <div class="list-section">
+    <div class="list-header">
+      <div class="list-title">ත්‍යාග ලේඛනය</div>
+      <button class="btn-clear-all" onclick="confirmClearAll()">සියල්ල ඉවත් කරන්න</button>
+    </div>
+    <div class="col-headers">
+      <div class="col-h-name">නම</div>
+      <div class="col-h-amount">මුදල</div>
+      <div class="col-h-del"></div>
+    </div>
+    <div id="giftList"></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <!-- Firebase SDK (compat v9) -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+
+  <script>
+    // ── Firebase init ──────────────────────────────────────────────
+    const firebaseConfig = {
+      apiKey: "AIzaSyDkW0yTPPLemziK-gSVsk64Yy4LbNwnBFg",
+      authDomain: "wedding-gift-tracker-81823.firebaseapp.com",
+      projectId: "wedding-gift-tracker-81823",
+      storageBucket: "wedding-gift-tracker-81823.firebasestorage.app",
+      messagingSenderId: "698091749662",
+      appId: "1:698091749662:web:8d8fb88cd14ed417b0490f"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const giftsCol = db.collection('gifts');
+
+    // ── In-memory cache (populated by real-time listener) ──────────
+    let cachedGifts = [];
+    let firestoreReady = false;
+
+    // ── Sync status helpers ────────────────────────────────────────
+    function setSyncStatus(state, label) {
+      const dot   = document.getElementById('syncDot');
+      const lbl   = document.getElementById('syncLabel');
+      dot.className = 'sync-dot ' + state;
+      lbl.textContent = label;
+    }
+
+    // ── Real-time listener ─────────────────────────────────────────
+    giftsCol.orderBy('ts', 'desc').onSnapshot(
+      snapshot => {
+        cachedGifts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        firestoreReady = true;
+        setSyncStatus('synced', 'Firebase sync — Live ✓');
+        document.getElementById('btnEnter').disabled = false;
+        renderList();
+      },
+      err => {
+        console.error('Firestore error:', err);
+        setSyncStatus('offline', 'Offline — local mode');
+        // Fall back to localStorage on error
+        if (!firestoreReady) {
+          cachedGifts = loadLocalData();
+          firestoreReady = true;
+          document.getElementById('btnEnter').disabled = false;
+          renderList();
+        }
+      }
+    );
+
+    // ── localStorage fallback helpers ──────────────────────────────
+    const STORAGE_KEY = 'wedding_gifts_v1';
+    function loadLocalData() {
+      try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch(e) { return []; }
+    }
+    function saveLocalData(data) {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e) {}
+    }
+
+    // ── Formatting helpers ─────────────────────────────────────────
+    function formatAmount(n) {
+      return 'රු. ' + Number(n).toLocaleString('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    function formatDate(ts) {
+      const d = new Date(typeof ts === 'object' && ts.toDate ? ts.toDate() : ts);
+      return d.toLocaleDateString('si-LK', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+    function getInitials(name) {
+      return name.trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase() || '?';
+    }
+    function escHtml(s) {
+      return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // ── Toast ──────────────────────────────────────────────────────
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2200);
+    }
+
+    // ── Add entry ──────────────────────────────────────────────────
+    async function addEntry() {
+      const nameEl   = document.getElementById('inputName');
+      const amountEl = document.getElementById('inputAmount');
+      const name     = nameEl.value.trim();
+      const amount   = parseFloat(amountEl.value);
+
+      if (!name)                       { showToast('⚠️ නම ඇතුළත් කරන්න');              nameEl.focus();   return; }
+      if (isNaN(amount) || amount < 0) { showToast('⚠️ නිවැරදි මුදලක් ඇතුළත් කරන්න'); amountEl.focus(); return; }
+
+      const entry = { name, amount, ts: firebase.firestore.FieldValue.serverTimestamp() };
+
+      try {
+        await giftsCol.add(entry);
+        // listener will update cachedGifts automatically
+      } catch (err) {
+        // Offline fallback
+        console.warn('Firestore write failed, saving locally:', err);
+        const localEntry = { id: 'local_' + Date.now(), name, amount, ts: Date.now() };
+        const local = loadLocalData();
+        local.unshift(localEntry);
+        saveLocalData(local);
+        cachedGifts = local;
+        renderList();
+      }
+
+      nameEl.value   = '';
+      amountEl.value = '';
+      nameEl.focus();
+      showToast('✅ ' + name + ' — ' + formatAmount(amount));
+    }
+
+    // ── Delete entry ───────────────────────────────────────────────
+    async function deleteEntry(id) {
+      if (String(id).startsWith('local_')) {
+        // Local-only entry
+        const local = loadLocalData().filter(e => e.id !== id);
+        saveLocalData(local);
+        cachedGifts = local;
+        renderList();
+      } else {
+        try {
+          await giftsCol.doc(id).delete();
+          // listener handles UI update
+        } catch (err) {
+          console.error('Delete failed:', err);
+          showToast('⚠️ ඉවත් කිරීම අසාර්ථකයි');
+          return;
+        }
+      }
+      showToast('🗑️ ඉවත් කරන ලදී');
+    }
+
+    // ── Clear all ──────────────────────────────────────────────────
+    async function confirmClearAll() {
+      if (!cachedGifts.length) { showToast('ලැයිස්තුව හිස්ය'); return; }
+      if (!confirm('ත්‍යාග ' + cachedGifts.length + ' ක් සියල්ල ඉවත් කරන්නද?')) return;
+
+      try {
+        const batch = db.batch();
+        cachedGifts.forEach(e => {
+          if (!String(e.id).startsWith('local_')) {
+            batch.delete(giftsCol.doc(e.id));
+          }
+        });
+        await batch.commit();
+        saveLocalData([]);
+        showToast('🗑️ සියල්ල ඉවත් කරන ලදී');
+        // listener will clear cachedGifts + re-render
+      } catch(err) {
+        console.error('Clear all failed:', err);
+        showToast('⚠️ දෝෂයකි');
+      }
+    }
+
+    // ── Render list ────────────────────────────────────────────────
+    function renderList() {
+      const query  = (document.getElementById('searchInput').value || '').toLowerCase();
+      const all    = cachedGifts;
+      const shown  = query ? all.filter(e => e.name.toLowerCase().includes(query)) : all;
+
+      const total  = all.reduce((s, e) => s + Number(e.amount), 0);
+
+      document.getElementById('totalAmount').textContent = formatAmount(total);
+      document.getElementById('totalCount').textContent  = all.length + ' දෙනා';
+
+      const listEl = document.getElementById('giftList');
+
+      if (!shown.length) {
+        listEl.innerHTML = `<div class="empty-state">
+          <span class="emoji">${query ? '🔍' : '🎁'}</span>
+          <p>${query ? '"' + query + '" සඳහා ප්‍රතිඵල නොමැත' : 'ත්‍යාග ඇතුළත් කිරීම ආරම්භ කරන්න'}</p>
+        </div>`;
+        return;
+      }
+
+      listEl.innerHTML = shown.map(e => `
+        <div class="gift-item">
+          <div class="gift-avatar">${getInitials(e.name)}</div>
+          <div class="gift-info">
+            <div class="gift-name">${escHtml(e.name)}</div>
+            <div class="gift-date">${formatDate(e.ts)}</div>
+          </div>
+          <div class="gift-amount">${formatAmount(e.amount)}</div>
+          <button class="btn-delete" onclick="deleteEntry('${escHtml(String(e.id))}')" aria-label="ඉවත් කරන්න">✕</button>
+        </div>
+      `).join('');
+    }
+
+    // ── Enter key support ──────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('btnEnter').disabled = true; // wait for Firestore
+      document.getElementById('inputName').addEventListener('keydown',   e => { if (e.key === 'Enter') document.getElementById('inputAmount').focus(); });
+      document.getElementById('inputAmount').addEventListener('keydown', e => { if (e.key === 'Enter') addEntry(); });
+    });
+  </script>
+</body>
+</html>
