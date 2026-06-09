@@ -408,15 +408,16 @@
 
   <div class="toast" id="toast"></div>
 
-  <!-- Firebase SDK (compat v9) -->
+  <!-- Firebase SDK (compat v9) — Realtime Database -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
 
   <script>
     // ── Firebase init ──────────────────────────────────────────────
     const firebaseConfig = {
       apiKey: "AIzaSyDkW0yTPPLemziK-gSVsk64Yy4LbNwnBFg",
       authDomain: "wedding-gift-tracker-81823.firebaseapp.com",
+      databaseURL: "https://wedding-gift-tracker-81823-default-rtdb.asia-southeast1.firebasedatabase.app",
       projectId: "wedding-gift-tracker-81823",
       storageBucket: "wedding-gift-tracker-81823.firebasestorage.app",
       messagingSenderId: "698091749662",
@@ -424,44 +425,44 @@
     };
 
     firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-    const giftsCol = db.collection('gifts');
+    const db       = firebase.database();
+    const giftsRef = db.ref('gifts');
 
-    // ── In-memory cache (populated by real-time listener) ──────────
+    // ── In-memory cache ────────────────────────────────────────────
     let cachedGifts = [];
-    let firestoreReady = false;
+    let dbReady     = false;
 
     // ── Sync status helpers ────────────────────────────────────────
     function setSyncStatus(state, label) {
-      const dot   = document.getElementById('syncDot');
-      const lbl   = document.getElementById('syncLabel');
-      dot.className = 'sync-dot ' + state;
-      lbl.textContent = label;
+      document.getElementById('syncDot').className = 'sync-dot ' + state;
+      document.getElementById('syncLabel').textContent = label;
     }
 
     // ── Real-time listener ─────────────────────────────────────────
-    giftsCol.orderBy('ts', 'desc').onSnapshot(
+    giftsRef.on('value',
       snapshot => {
-        cachedGifts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        firestoreReady = true;
+        const raw = snapshot.val() || {};
+        cachedGifts = Object.entries(raw)
+          .map(([id, v]) => ({ id, ...v }))
+          .sort((a, b) => b.ts - a.ts);
+        dbReady = true;
         setSyncStatus('synced', 'Firebase sync — Live ✓');
         document.getElementById('btnEnter').disabled = false;
         renderList();
       },
       err => {
-        console.error('Firestore error:', err);
+        console.error('RTDB error:', err);
         setSyncStatus('offline', 'Offline — local mode');
-        // Fall back to localStorage on error
-        if (!firestoreReady) {
+        if (!dbReady) {
           cachedGifts = loadLocalData();
-          firestoreReady = true;
+          dbReady = true;
           document.getElementById('btnEnter').disabled = false;
           renderList();
         }
       }
     );
 
-    // ── localStorage fallback helpers ──────────────────────────────
+    // ── localStorage fallback ──────────────────────────────────────
     const STORAGE_KEY = 'wedding_gifts_v1';
     function loadLocalData() {
       try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch(e) { return []; }
@@ -475,7 +476,7 @@
       return 'රු. ' + Number(n).toLocaleString('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
     function formatDate(ts) {
-      const d = new Date(typeof ts === 'object' && ts.toDate ? ts.toDate() : ts);
+      const d = new Date(ts);
       return d.toLocaleDateString('si-LK', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
     }
     function getInitials(name) {
@@ -503,17 +504,13 @@
       if (!name)                       { showToast('⚠️ නම ඇතුළත් කරන්න');              nameEl.focus();   return; }
       if (isNaN(amount) || amount < 0) { showToast('⚠️ නිවැරදි මුදලක් ඇතුළත් කරන්න'); amountEl.focus(); return; }
 
-      const entry = { name, amount, ts: firebase.firestore.FieldValue.serverTimestamp() };
-
       try {
-        await giftsCol.add(entry);
-        // listener will update cachedGifts automatically
+        await giftsRef.push({ name, amount, ts: Date.now() });
+        // listener auto-updates UI
       } catch (err) {
-        // Offline fallback
-        console.warn('Firestore write failed, saving locally:', err);
-        const localEntry = { id: 'local_' + Date.now(), name, amount, ts: Date.now() };
+        console.warn('RTDB write failed, saving locally:', err);
         const local = loadLocalData();
-        local.unshift(localEntry);
+        local.unshift({ id: 'local_' + Date.now(), name, amount, ts: Date.now() });
         saveLocalData(local);
         cachedGifts = local;
         renderList();
@@ -528,15 +525,13 @@
     // ── Delete entry ───────────────────────────────────────────────
     async function deleteEntry(id) {
       if (String(id).startsWith('local_')) {
-        // Local-only entry
         const local = loadLocalData().filter(e => e.id !== id);
         saveLocalData(local);
         cachedGifts = local;
         renderList();
       } else {
         try {
-          await giftsCol.doc(id).delete();
-          // listener handles UI update
+          await giftsRef.child(id).remove();
         } catch (err) {
           console.error('Delete failed:', err);
           showToast('⚠️ ඉවත් කිරීම අසාර්ථකයි');
@@ -550,18 +545,10 @@
     async function confirmClearAll() {
       if (!cachedGifts.length) { showToast('ලැයිස්තුව හිස්ය'); return; }
       if (!confirm('ත්‍යාග ' + cachedGifts.length + ' ක් සියල්ල ඉවත් කරන්නද?')) return;
-
       try {
-        const batch = db.batch();
-        cachedGifts.forEach(e => {
-          if (!String(e.id).startsWith('local_')) {
-            batch.delete(giftsCol.doc(e.id));
-          }
-        });
-        await batch.commit();
+        await giftsRef.remove();
         saveLocalData([]);
         showToast('🗑️ සියල්ල ඉවත් කරන ලදී');
-        // listener will clear cachedGifts + re-render
       } catch(err) {
         console.error('Clear all failed:', err);
         showToast('⚠️ දෝෂයකි');
@@ -570,17 +557,15 @@
 
     // ── Render list ────────────────────────────────────────────────
     function renderList() {
-      const query  = (document.getElementById('searchInput').value || '').toLowerCase();
-      const all    = cachedGifts;
-      const shown  = query ? all.filter(e => e.name.toLowerCase().includes(query)) : all;
-
-      const total  = all.reduce((s, e) => s + Number(e.amount), 0);
+      const query = (document.getElementById('searchInput').value || '').toLowerCase();
+      const all   = cachedGifts;
+      const shown = query ? all.filter(e => e.name.toLowerCase().includes(query)) : all;
+      const total = all.reduce((s, e) => s + Number(e.amount), 0);
 
       document.getElementById('totalAmount').textContent = formatAmount(total);
       document.getElementById('totalCount').textContent  = all.length + ' දෙනා';
 
       const listEl = document.getElementById('giftList');
-
       if (!shown.length) {
         listEl.innerHTML = `<div class="empty-state">
           <span class="emoji">${query ? '🔍' : '🎁'}</span>
@@ -588,7 +573,6 @@
         </div>`;
         return;
       }
-
       listEl.innerHTML = shown.map(e => `
         <div class="gift-item">
           <div class="gift-avatar">${getInitials(e.name)}</div>
@@ -604,7 +588,7 @@
 
     // ── Enter key support ──────────────────────────────────────────
     document.addEventListener('DOMContentLoaded', () => {
-      document.getElementById('btnEnter').disabled = true; // wait for Firestore
+      document.getElementById('btnEnter').disabled = true;
       document.getElementById('inputName').addEventListener('keydown',   e => { if (e.key === 'Enter') document.getElementById('inputAmount').focus(); });
       document.getElementById('inputAmount').addEventListener('keydown', e => { if (e.key === 'Enter') addEntry(); });
     });
